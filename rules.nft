@@ -1,0 +1,13 @@
+#!/usr/sbin/nft -f
+# Автогенерація з класифікації. Перевірка: nft -c -f rules.nft
+# Застосування (root): nft -f rules.nft
+# Окрема таблиця, щоб не чіпати правила за замовчуванням.
+
+flush table inet cyber_cls
+
+table inet cyber_cls {
+  chain input_cls {
+    type filter hook input priority -100; policy accept;
+    ip saddr 192.168.50.20 drop comment "cls:syn"
+  }
+}
