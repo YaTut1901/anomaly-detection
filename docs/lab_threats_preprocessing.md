@@ -6,16 +6,16 @@
 
 ## Підготовка даних
 
-1. Згенеруйте CSV скриптом `generate_threats.py`. За замовчуванням файл **`cyber_threats_dataset.csv`**.
+1. Згенеруйте CSV скриптом `synthetic/generate_threats.py` з кореня репозиторію. За замовчуванням файл **`synthetic/cyber_threats_dataset.csv`**.
 
 2. Для лабораторних прикладів із **пропусками та дублікатами** увімкніть опційні параметри:
 
 ```bash
-python generate_threats.py 200 \
+python synthetic/generate_threats.py 200 \
   --missing-cell-prob 0.08 \
   --duplicate-ratio 0.08 \
   --random-state 42 \
-  --output cyber_threats_dataset.csv
+  --output synthetic/cyber_threats_dataset.csv
 ```
 
 - **`--missing-cell-prob P`** (0…1) — для кожної з обраних колонок з імовірністю `P` у випадковий рядок записується **пропуск** (`NaN`); для колонки `Timestamp` імовірність зменшена, щоб не «обнуляти» весь час.
@@ -24,7 +24,7 @@ python generate_threats.py 200 \
 
 Якщо обидва параметри **0** (за замовчуванням), датасет як раніше без штучних пропусків і без дублікатів.
 
-## Завдання роботи (ноутбук `cyber_threats_preprocessing.ipynb`)
+## Завдання роботи (ноутбук `synthetic/cyber_threats_preprocessing.ipynb`)
 
 1. Завантажити таблицю в **`pandas.DataFrame`**.
 2. Переглянути вибірку **`df.head()`**.

@@ -5,6 +5,7 @@ import hashlib
 import ipaddress
 import os
 import random
+from pathlib import Path
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Callable
@@ -192,23 +193,11 @@ def generate_dataset(row_count: int, country_for_ip: CountryLookup):
     )
 
 
-def inject_missing_and_duplicates(
-    df: pd.DataFrame,
-    missing_cell_prob: float,
-    duplicate_ratio: float,
-    random_state: int | None = None,
-) -> pd.DataFrame:
-    """
-    Штучні пропуски: для кожної комірки в обраних колонках з імовірністю missing_cell_prob
-    записується NaN (приклад з методички: if random.random() < 0.1: ... None).
-    Дублікати: додається int(n * duplicate_ratio) випадкових копій існуючих рядків.
-    """
+def inject_missing_cells(df: pd.DataFrame, missing_cell_prob: float) -> pd.DataFrame:
     if missing_cell_prob < 0 or missing_cell_prob > 1:
         raise ValueError("missing_cell_prob має бути в діапазоні [0, 1]")
-    if duplicate_ratio < 0:
-        raise ValueError("duplicate_ratio не може бути від'ємним")
 
-    rng = np.random.default_rng(random_state)
+    rng = np.random.default_rng()
     out = df.copy()
 
     missable = [
@@ -234,15 +223,9 @@ def inject_missing_and_duplicates(
 
     if missing_cell_prob > 0 and missable:
         for col in missable:
-            p = missing_cell_prob * (0.25 if col == "Timestamp" else 1.0)
+            p = missing_cell_prob
             mask = rng.random(len(out)) < p
             out.loc[mask, col] = np.nan
-
-    if duplicate_ratio > 0 and len(out) > 0:
-        n_extra = int(len(out) * duplicate_ratio)
-        if n_extra > 0:
-            pick = rng.integers(0, len(out), size=n_extra)
-            out = pd.concat([out, out.iloc[pick].copy()], ignore_index=True)
 
     return out
 
@@ -254,8 +237,7 @@ def main():
             "Геолокація: без --geoip-country-db країна обирається детерміновано з IP "
             "(навчальний режим). Для реальних назв встановіть geoip2 і вкажіть шлях до "
             "GeoLite2-Country.mmdb (безкоштовна база MaxMind). "
-            "Для лабораторної з обробки даних: --missing-cell-prob та --duplicate-ratio "
-            "(штучні пропуски та дублікати рядків)."
+            "Для лабораторної з обробки даних: --missing-cell-prob (штучні пропуски)."
         ),
     )
     parser.add_argument(
@@ -266,8 +248,8 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default="cyber_threats_dataset.csv",
-        help="Назва вихідного CSV файлу",
+        default=str(Path(__file__).resolve().parent / "cyber_threats_dataset.csv"),
+        help="Шлях до вихідного CSV (за замовчуванням — поруч зі скриптом)",
     )
     parser.add_argument(
         "--geoip-country-db",
@@ -283,19 +265,6 @@ def main():
         metavar="P",
         help="0..1: імовірність NaN у випадковій комірці (Timestamp рідше). 0 = без пропусків",
     )
-    parser.add_argument(
-        "--duplicate-ratio",
-        type=float,
-        default=0.0,
-        metavar="R",
-        help="0..1: частка додаткових рядків-дублікатів від початкової кількості рядків",
-    )
-    parser.add_argument(
-        "--random-state",
-        type=int,
-        default=None,
-        help="Seed для відтворюваності пропусків і дублікатів",
-    )
     args = parser.parse_args()
 
     if args.rows < 1:
@@ -304,13 +273,8 @@ def main():
     with geoip_country_lookup(args.geoip_country_db) as country_for_ip:
         df = generate_dataset(args.rows, country_for_ip)
 
-    if args.missing_cell_prob > 0 or args.duplicate_ratio > 0:
-        df = inject_missing_and_duplicates(
-            df,
-            missing_cell_prob=args.missing_cell_prob,
-            duplicate_ratio=args.duplicate_ratio,
-            random_state=args.random_state,
-        )
+    if args.missing_cell_prob > 0:
+        df = inject_missing_cells(df, missing_cell_prob=args.missing_cell_prob)
 
     df.to_csv(args.output, index=False)
 

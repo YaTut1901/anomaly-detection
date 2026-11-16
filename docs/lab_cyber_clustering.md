@@ -2,11 +2,11 @@
 
 ## Артефакт
 
-- Код і виконання: `cyber_clustering.ipynb`.
+- Код і виконання: `synthetic/cyber_clustering.ipynb`.
 
 ## Джерело даних
 
-- Файл: `cyber_threats_dataset.csv` (директорія проєкту).
+- Файл: `synthetic/cyber_threats_dataset.csv`.
 - Використання рядків після `pandas.DataFrame.dropna()`.
 
 ## Колонки

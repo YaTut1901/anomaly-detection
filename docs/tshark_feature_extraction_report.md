@@ -2,7 +2,7 @@
 
 ## Вхідні дані
 
-Каталог `ddos_attack/` містить 8 дампів:
+Каталог `traffic/` містить 8 дампів:
 
 | Файл | Джерело | Тип атаки / трафіку |
 |------|---------|---------------------|
@@ -138,7 +138,7 @@ FIELDS=(
   -e icmp.type -e icmp.code -e icmp.ident -e icmp.seq
 )
 
-for f in ddos_attack/*.pcap; do
+for f in traffic/*.pcap; do
   label=$(basename "$f" .pcap)
   tshark -r "$f" -T fields "${FIELDS[@]}" \
     -E header=y -E separator=, -E quote=d -E occurrence=f \
@@ -235,7 +235,7 @@ Per-packet CSV — це сирий вхід. Для класифікатора �
 5. Для **балансу класів** підрахуйте кількість кадрів на файл (`capinfos *.pcap`) — DDoS-дампи мають сотні тисяч пакетів, нормальний ~2200; при тренуванні зробіть undersampling DDoS або oversampling normal.
 6. **`capinfos`** — швидка метаінформація (тривалість, середній pps, avg packet size) без парсингу:
    ```bash
-   capinfos -csMuaeES ddos_attack/*.pcap
+   capinfos -csMuaeES traffic/*.pcap
    ```
 
 ## Резюме

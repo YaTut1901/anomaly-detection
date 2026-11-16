@@ -13,6 +13,7 @@ import pandas as pd
 from tensorflow import keras
 
 W = 1.0
+ROOT = Path(__file__).resolve().parent
 
 
 def _iat_stats(times: pd.Series) -> tuple[float, float]:
@@ -120,9 +121,9 @@ def main() -> int:
         required=True,
         help="CSV пакетів (як cybersecurity_dataset без колонки label; якщо label є — ігнорується).",
     )
-    p.add_argument("--model", type=Path, default=Path("models/cyber_flow_classifier.keras"))
-    p.add_argument("--artifacts", type=Path, default=Path("models/cyber_flow_artifacts.joblib"))
-    p.add_argument("--output", type=Path, default=Path("rules.nft"))
+    p.add_argument("--model", type=Path, default=ROOT / "models" / "cyber_flow_classifier.keras")
+    p.add_argument("--artifacts", type=Path, default=ROOT / "models" / "cyber_flow_artifacts.joblib")
+    p.add_argument("--output", type=Path, default=ROOT / "rules.nft")
     p.add_argument(
         "--allow-classes",
         default="normal",
