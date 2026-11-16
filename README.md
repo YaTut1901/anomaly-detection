@@ -1,66 +1,66 @@
 # Anomaly Detection
 
-> Виявлення DDoS у мережевому трафіку нейромережею і автоматичне блокування джерел атак через nftables.
+> Detect DDoS traffic with a neural network and automatically block attack sources with nftables.
 
 ![python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![tensorflow](https://img.shields.io/badge/TensorFlow-Keras-FF6F00?logo=tensorflow&logoColor=white)
 ![nftables](https://img.shields.io/badge/firewall-nftables-4B8BBE)
 ![accuracy](https://img.shields.io/badge/test%20accuracy-99.49%25-2ea44f)
 
-У репозиторії два пайплайни:
+The repository contains two pipelines:
 
-- **Трафік** — справжні pcap-дампи атак hping3 і нормального трафіку, MLP-класифікатор flow-вікон і фоновий демон, який блокує IP атакуючих у реальному часі.
-- **Синтетика** — генератор навчальних подій кіберзагроз і ноутбуки лабораторних робіт з аналізу, очищення та кластеризації даних.
+- **Traffic** — real pcap captures of hping3 floods and normal traffic, an MLP classifier over flow windows, and a background daemon that blocks attacking IPs in real time.
+- **Synthetic** — a generator of training cyber-threat events and lab notebooks for data analysis, cleaning and clustering.
 
-## Зміст
+## Contents
 
-- [Як це працює](#як-це-працює)
-- [Структура](#структура)
-- [Швидкий старт](#швидкий-старт)
-- [Модель](#модель)
-- [Фільтр-демон](#фільтр-демон)
-- [Офлайн-генерація правил](#офлайн-генерація-правил)
-- [Синтетичні загрози](#синтетичні-загрози)
-- [Документація](#документація)
+- [How it works](#how-it-works)
+- [Layout](#layout)
+- [Quick start](#quick-start)
+- [Model](#model)
+- [Filter daemon](#filter-daemon)
+- [Offline rule generation](#offline-rule-generation)
+- [Synthetic threats](#synthetic-threats)
+- [Documentation](#documentation)
 
-## Як це працює
+## How it works
 
 ```mermaid
 flowchart LR
-    A[hping3 / реальний клієнт] -->|tshark| B[CSV пакетів]
-    B --> C[flow-вікна 1 с<br/>за ip.src]
-    C --> D[Навчання MLP<br/>ноутбук]
+    A[hping3 / real client] -->|tshark| B[packet CSV]
+    B --> C[1 s flow windows<br/>per ip.src]
+    C --> D[MLP training<br/>notebook]
     D --> E[(traffic/models/)]
-    N[живий інтерфейс] -->|tshark| F[filter_daemon.py]
+    N[live interface] -->|tshark| F[filter_daemon.py]
     E --> F
-    F -->|клас ≠ normal| G[nft set blocked_v4<br/>drop]
+    F -->|class ≠ normal| G[nft set blocked_v4<br/>drop]
 ```
 
-Кожна секунда трафіку від одного джерела згортається у 15 статистичних ознак: кількість пакетів і розмір, унікальні адреси та порти призначення, частки TCP/UDP/ICMP, частки прапорців SYN/ACK/FIN/RST/PSH, статистика інтервалів між пакетами. Класифікатор визначає, нормальний це трафік чи один із семи типів flood.
+Every second of traffic from one source is aggregated into 15 statistical features: packet count and size, unique destination addresses and ports, TCP/UDP/ICMP shares, SYN/ACK/FIN/RST/PSH flag shares, and inter-arrival time statistics. The classifier decides whether the window is normal traffic or one of seven flood types.
 
-## Структура
+## Layout
 
 ```
 .
-├── traffic/                          реальний трафік і продакшн-частина
-│   ├── generate_attacks.sh           захоплення pcap по класах атак (root, tshark, hping3)
-│   ├── csv/                          витяги tshark і зведений cybersecurity_dataset.csv
-│   ├── cybersecurity_dataset_overview.ipynb   ознаки, навчання MLP, збереження моделі
-│   ├── cybersecurity_dataset_analysis.ipynb   розвідувальний аналіз
-│   ├── flow_classifier.py            спільна агрегація у flow і обгортка над моделлю
-│   ├── filter_daemon.py              фоновий фільтр живого трафіку
-│   ├── anomaly-filter.service        systemd-юніт демона
+├── traffic/                          real traffic and the production part
+│   ├── generate_attacks.sh           per-class pcap capture (root, tshark, hping3)
+│   ├── csv/                          tshark extracts and the combined cybersecurity_dataset.csv
+│   ├── cybersecurity_dataset_overview.ipynb   features, MLP training, model export
+│   ├── cybersecurity_dataset_analysis.ipynb   exploratory analysis
+│   ├── flow_classifier.py            shared flow aggregation and model wrapper
+│   ├── filter_daemon.py              background filter for live traffic
+│   ├── anomaly-filter.service        systemd unit for the daemon
 │   ├── generate_nft_from_classification.py    CSV → rules.nft
-│   ├── rules.nft                     приклад згенерованих правил
-│   └── test_filter_logic.py          тести логіки демона
-├── synthetic/                        синтетичні загрози для лабораторних
+│   ├── rules.nft                     example of generated rules
+│   └── test_filter_logic.py          daemon logic tests
+├── synthetic/                        synthetic threats for the labs
 │   ├── generate_threats.py
 │   ├── cyber_threats_*.ipynb, cyber_clustering.ipynb
 │   └── *.csv
-└── docs/                             тексти лабораторних і звіти з розбору дампів
+└── docs/                             lab write-ups and capture analysis reports (Ukrainian)
 ```
 
-## Швидкий старт
+## Quick start
 
 ```bash
 git clone https://github.com/YaTut1901/anomaly-detection.git
@@ -70,55 +70,55 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install pandas numpy scikit-learn tensorflow joblib matplotlib seaborn jupyter
 ```
 
-Системні залежності для захоплення і блокування: `tshark`, `nftables`, для генерації атак ще `hping3`.
+System dependencies for capture and blocking: `tshark`, `nftables`; `hping3` to generate attacks.
 
-1. Навчити і зберегти модель — виконати `traffic/cybersecurity_dataset_overview.ipynb` **з каталогу `traffic/`**. Ноутбук запише `traffic/models/cyber_flow_classifier.keras` і `traffic/models/cyber_flow_artifacts.joblib` (scaler, label encoder, порядок ознак). Каталог `models/` не комітиться.
-2. Перевірити демон без змін у фаєрволі:
+1. Train and save the model by running `traffic/cybersecurity_dataset_overview.ipynb` **from the `traffic/` directory**. It writes `traffic/models/cyber_flow_classifier.keras` and `traffic/models/cyber_flow_artifacts.joblib` (scaler, label encoder, feature order). The `models/` directory is not committed.
+2. Check the daemon without touching the firewall:
 
    ```bash
    sudo .venv/bin/python traffic/filter_daemon.py --dry-run
    ```
 
-3. Запустити у фоні:
+3. Run it in the background:
 
    ```bash
    sudo .venv/bin/python traffic/filter_daemon.py --daemon
    ```
 
-## Модель
+## Model
 
-MLP на Keras:
+Keras MLP:
 
 ```
 Dense(64, ReLU) → Dense(32, ReLU) → Dense(8, softmax)
 ```
 
-Adam, `sparse_categorical_crossentropy`, 20 епох, `StandardScaler` на ознаках, стратифікований поділ 80/20.
+Adam, `sparse_categorical_crossentropy`, 20 epochs, `StandardScaler` on features, stratified 80/20 split.
 
-Класи: `normal`, `syn`, `ack`, `fin`, `rst`, `push`, `udp`, `icmp`.
+Classes: `normal`, `syn`, `ack`, `fin`, `rst`, `push`, `udp`, `icmp`.
 
-Якість на відкладених 197 flow-вікнах:
+Results on 197 held-out flow windows:
 
-| Метрика | Значення |
-|---------|----------|
+| Metric | Value |
+|--------|-------|
 | Test accuracy | **99.49%** |
 | Macro F1 | 0.99 |
 | Weighted F1 | 1.00 |
 
-Сім класів мають F1 1.00; найслабший — precision 0.92, F1 0.96.
+Seven classes reach F1 1.00; the weakest has precision 0.92 and F1 0.96.
 
-Атаки записані на loopback з одним фіксованим джерелом на клас, тож на реальній мережі якість може бути нижчою. Крім того, до ознак моделі зараз потрапляють `t_bucket` (номер секунди) і `ip_src_numeric` (IP джерела як число). На навчальних даних вони фактично підказують клас, а на живому трафіку нічого не означають. Перед бойовим запуском варто прогнати демон у `--dry-run` на своєму трафіку.
+The attacks were recorded on loopback with one fixed source per class, so quality on a real network may be lower. The model's features also currently include `t_bucket` (the second number) and `ip_src_numeric` (source IP as an integer). On the training data they effectively leak the class; on live traffic they carry no meaning. Run the daemon with `--dry-run` on your own traffic before enforcing.
 
-## Фільтр-демон
+## Filter daemon
 
-`traffic/filter_daemon.py` — окремий процес, який:
+`traffic/filter_daemon.py` is a separate process that:
 
-1. знімає живий IPv4 через `tshark` на інтерфейсі default route (або `--interface`);
-2. щойно секундне вікно закрилось, будує ті самі ознаки, що й при навчанні;
-3. класифікує вікна збереженою моделлю;
-4. для класу поза allow-list з упевненістю від `--min-confidence` додає IP джерела в nft set.
+1. captures live IPv4 with `tshark` on the default-route interface (or `--interface`);
+2. as soon as a one-second window closes, builds the same features used in training;
+3. classifies the windows with the saved model;
+4. for any class outside the allow list with confidence at least `--min-confidence`, adds the source IP to an nft set.
 
-Правила живуть в окремій таблиці і не чіпають решту фаєрвола:
+Rules live in a dedicated table and leave the rest of the firewall alone:
 
 ```
 table inet cyber_cls {
@@ -130,35 +130,35 @@ table inet cyber_cls {
 }
 ```
 
-Захист від самоблокування: ніколи не блокуються loopback, link-local, multicast, `0.0.0.0/8`, адреси самого хоста, шлюз за замовчуванням і все з `--allow-ips`. Кількість адрес у set обмежена `--max-blocks` (500), щоб flood із підробленими джерелами не роздув правила.
+Self-lockout protection: loopback, link-local, multicast, `0.0.0.0/8`, the host's own addresses, the default gateway and anything in `--allow-ips` are never blocked. The set size is capped by `--max-blocks` (500) so a flood with spoofed sources cannot blow up the rules.
 
-### Керування
+### Control
 
 ```bash
-sudo .venv/bin/python traffic/filter_daemon.py --dry-run   # лише лог, nft не змінюється
-sudo .venv/bin/python traffic/filter_daemon.py --daemon    # у фон, pid і лог у traffic/run/
-sudo .venv/bin/python traffic/filter_daemon.py --stop      # SIGTERM процесу з pid-файла
+sudo .venv/bin/python traffic/filter_daemon.py --dry-run   # log only, nft untouched
+sudo .venv/bin/python traffic/filter_daemon.py --daemon    # detach; pid and log in traffic/run/
+sudo .venv/bin/python traffic/filter_daemon.py --stop      # SIGTERM the process from the pid file
 
-sudo nft list set inet cyber_cls blocked_v4                # хто заблокований
-sudo nft delete element inet cyber_cls blocked_v4 '{ 203.0.113.9 }'   # розблокувати
-sudo nft delete table inet cyber_cls                       # зняти все
+sudo nft list set inet cyber_cls blocked_v4                # who is blocked
+sudo nft delete element inet cyber_cls blocked_v4 '{ 203.0.113.9 }'   # unblock one IP
+sudo nft delete table inet cyber_cls                       # remove everything
 ```
 
-Після зупинки блокування лишаються. Щоб демон знімав таблицю при виході, додайте `--flush-on-stop`.
+Blocks persist after the daemon stops. Pass `--flush-on-stop` to remove the table on exit.
 
-### Параметри
+### Options
 
-| Прапорець | За замовчуванням | Призначення |
-|-----------|------------------|-------------|
-| `--interface` | інтерфейс default route | де слухати трафік |
-| `--allow-classes` | `normal` | класи, які не блокуються |
-| `--min-confidence` | `0.5` | мінімальна ймовірність класу |
-| `--min-packets` | `1` | мінімум пакетів у вікні |
-| `--allow-ips` | — | IP через кому, які ніколи не блокувати |
-| `--no-protect-gateway` | — | дозволити блокувати шлюз |
-| `--max-blocks` | `500` | ліміт адрес у set |
-| `--window` | `1.0` | довжина вікна, с (має збігатися з навчанням) |
-| `--model`, `--artifacts` | `traffic/models/…` | шляхи до моделі |
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--interface` | default-route interface | where to capture |
+| `--allow-classes` | `normal` | classes that are never blocked |
+| `--min-confidence` | `0.5` | minimum class probability |
+| `--min-packets` | `1` | minimum packets in a window |
+| `--allow-ips` | — | comma-separated IPs that are never blocked |
+| `--no-protect-gateway` | — | allow blocking the gateway |
+| `--max-blocks` | `500` | cap on addresses in the set |
+| `--window` | `1.0` | window length in seconds (must match training) |
+| `--model`, `--artifacts` | `traffic/models/…` | model paths |
 
 ### systemd
 
@@ -169,49 +169,51 @@ sudo systemctl enable --now anomaly-filter
 journalctl -u anomaly-filter -f
 ```
 
-`ExecStart` у юніті вказує на `.venv` цього клону в `/home/ivan/Projects/anomaly-detection`. Якщо репозиторій лежить деінде, змініть шлях.
+`ExecStart` in the unit points to the `.venv` of this clone at `/home/ivan/Projects/anomaly-detection`. Change the path if the repository lives elsewhere.
 
-### Тести
+### Tests
 
 ```bash
 .venv/bin/python traffic/test_filter_logic.py
 ```
 
-Перевіряють розбір рядків tshark, закриття вікон, агрегацію у flow, рішення про блокування і захищені адреси. Для них не потрібні root, tshark і модель.
+They cover tshark line parsing, window closing, flow aggregation, block decisions and protected addresses. They need no root, tshark or model.
 
-## Офлайн-генерація правил
+## Offline rule generation
 
-Класифікувати готовий CSV пакетів і записати статичний `rules.nft`:
+Classify an existing packet CSV and write a static `rules.nft`:
 
 ```bash
 python traffic/generate_nft_from_classification.py --csv traffic/csv/sample_live_traffic.csv
-sudo nft -c -f traffic/rules.nft   # перевірка синтаксису
-sudo nft -f traffic/rules.nft      # застосування
+sudo nft -c -f traffic/rules.nft   # syntax check
+sudo nft -f traffic/rules.nft      # apply
 ```
 
-## Синтетичні загрози
+## Synthetic threats
 
-`synthetic/generate_threats.py` генерує навчальні події: протокол, прапорець, публічні IPv4, порти, розмір пакета, тип загрози, час і країну. Країна за замовчуванням детермінована від IP; з `--geoip-country-db` береться з GeoLite2.
+`synthetic/generate_threats.py` generates training events: protocol, flag, public IPv4 addresses, ports, packet size, threat type, timestamp and country. Country is derived deterministically from the IP by default; with `--geoip-country-db` it comes from GeoLite2.
 
 ```bash
 python synthetic/generate_threats.py 200 --missing-cell-prob 0.08
 ```
 
-Результат — `synthetic/cyber_threats_dataset.csv`. Ноутбуки запускаються з каталогу `synthetic/`:
+Output goes to `synthetic/cyber_threats_dataset.csv`. Run the notebooks from the `synthetic/` directory:
 
-| Ноутбук | Що робить |
-|---------|-----------|
-| `cyber_threats_preprocessing.ipynb` | пропуски, дати, аномалії, масштабування; пише `processed_dataset.csv` і `cleaned_data.csv` |
-| `cyber_threats_analysis.ipynb` | розподіли типів загроз, протоколів, країн, IP |
+| Notebook | What it does |
+|----------|--------------|
+| `cyber_threats_preprocessing.ipynb` | missing values, dates, outliers, scaling; writes `processed_dataset.csv` and `cleaned_data.csv` |
+| `cyber_threats_analysis.ipynb` | distributions of threat types, protocols, countries, IPs |
 | `cyber_clustering.ipynb` | KMeans, DBSCAN, agglomerative clustering |
 
-## Документація
+## Documentation
 
-| Файл | Зміст |
+The documents in `docs/` are in Ukrainian.
+
+| File | Topic |
 |------|-------|
-| [`docs/tshark_feature_extraction_report.md`](docs/tshark_feature_extraction_report.md) | які поля tshark витягувати і чому |
-| [`docs/normal_traffic_wireshark_analysis.md`](docs/normal_traffic_wireshark_analysis.md) | розбір дампу нормального трафіку |
-| [`docs/lab_cyber_threats.md`](docs/lab_cyber_threats.md) | генерація синтетичного датасету |
-| [`docs/lab_threats_analysis.md`](docs/lab_threats_analysis.md) | аналіз даних кіберзагроз |
-| [`docs/lab_threats_preprocessing.md`](docs/lab_threats_preprocessing.md) | обробка й очищення даних |
-| [`docs/lab_cyber_clustering.md`](docs/lab_cyber_clustering.md) | кластеризація |
+| [`docs/tshark_feature_extraction_report.md`](docs/tshark_feature_extraction_report.md) | which tshark fields to extract and why |
+| [`docs/normal_traffic_wireshark_analysis.md`](docs/normal_traffic_wireshark_analysis.md) | analysis of the normal traffic capture |
+| [`docs/lab_cyber_threats.md`](docs/lab_cyber_threats.md) | synthetic dataset generation |
+| [`docs/lab_threats_analysis.md`](docs/lab_threats_analysis.md) | cyber-threat data analysis |
+| [`docs/lab_threats_preprocessing.md`](docs/lab_threats_preprocessing.md) | data processing and cleaning |
+| [`docs/lab_cyber_clustering.md`](docs/lab_cyber_clustering.md) | clustering |
