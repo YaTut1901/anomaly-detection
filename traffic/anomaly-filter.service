@@ -1,0 +1,14 @@
+# ExecStart вказує на цей клон. Якщо репозиторій лежить в іншому місці — замініть шлях.
+[Unit]
+Description=Anomaly filter: classify live traffic and drop attack sources
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/ivan/Projects/anomaly-detection/.venv/bin/python /home/ivan/Projects/anomaly-detection/traffic/filter_daemon.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
